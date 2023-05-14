@@ -10,3 +10,5 @@
 [submodule "lv_demos"]
 	path = lv_demos
 	url = https://github.com/lvgl/lv_demos
+[submodule "lv_drivers/"]
+	url = https://github.com/sussy-amongus-rocket-team/lv_drivers
