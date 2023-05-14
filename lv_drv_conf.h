@@ -320,7 +320,7 @@
 #endif
 
 #if USE_FBDEV
-#  define FBDEV_PATH          "/dev/fb0"
+#  define FBDEV_PATH          "/dev/fb1"
 #endif
 
 /*-----------------------------------------
@@ -398,7 +398,7 @@
  *-------------------------------------*/
 /*DEPRECATED: Use the SDL driver instead. */
 #ifndef USE_MOUSE
-#  define USE_MOUSE           0
+#  define USE_MOUSE           1
 #endif
 
 #if USE_MOUSE
@@ -410,7 +410,7 @@
  *------------------------------------------*/
 /*DEPRECATED: Use the SDL driver instead. */
 #ifndef USE_MOUSEWHEEL
-#  define USE_MOUSEWHEEL      0
+#  define USE_MOUSEWHEEL      1
 #endif
 
 #if USE_MOUSEWHEEL
@@ -447,7 +447,7 @@
 #endif
 
 #if USE_EVDEV || USE_BSD_EVDEV
-#  define EVDEV_NAME   "/dev/input/event10"        /*You can use the "evtest" Linux tool to get the list of devices and test them*/
+#  define EVDEV_NAME   "/dev/input/tpsym"        /*You can use the "evtest" Linux tool to get the list of devices and test them*/
 #  define EVDEV_SWAP_AXES         0               /*Swap the x and y axes of the touchscreen*/
 
 #  define EVDEV_CALIBRATE         0               /*Scale and offset the touchscreen coordinates by using maximum and minimum values for each axis*/

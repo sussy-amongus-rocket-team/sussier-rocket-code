@@ -1,0 +1,183 @@
+#include "lvgl/lvgl.h"
+#include "lv_drivers/display/fbdev.h"
+#include "lv_drivers/indev/evdev.h"
+#include <unistd.h>
+#include <pthread.h>
+#include <time.h>
+#include <sys/time.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define DISP_BUF_SIZE (128 * 1024)
+
+bool rootful = 1;
+
+static void btn_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * btn = lv_event_get_target(e);
+}
+
+static void shutdown(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * btn = lv_event_get_target(e);
+	if(code == LV_EVENT_CLICKED) system("/sbin/shutdown now");
+}
+
+static void reboot(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * btn = lv_event_get_target(e);
+	if(code == LV_EVENT_CLICKED) system("/sbin/reboot");
+}
+
+static void modechange(lv_event_t *e) {
+	lv_event_code_t code = lv_event_get_code(e);
+	lv_obj_t * btn = lv_event_get_target(e);
+	if(code == LV_EVENT_VALUE_CHANGED) {
+		rootful = !lv_dropdown_get_selected(btn);
+		printf("%b\n", rootful);
+	}
+}
+
+unsigned short args;
+
+int main(int argc, char *argv[]) {
+	if(argc != 5) {
+		printf("Usage: %s width height fbdev_path evdev_path\n", argv[0]);
+		return 1;
+	}
+
+	/*LittlevGL init*/
+    lv_init();
+
+    /*Linux frame buffer device init*/
+    fbdev_init(argv[3]);
+
+    /*A small buffer for LittlevGL to draw the screen's content*/
+    static lv_color_t buf[DISP_BUF_SIZE];
+
+    /*Initialize a descriptor for the buffer*/
+    static lv_disp_draw_buf_t disp_buf;
+    lv_disp_draw_buf_init(&disp_buf, buf, NULL, DISP_BUF_SIZE);
+
+    /*Initialize and register a display driver*/
+    static lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.draw_buf   = &disp_buf;
+    disp_drv.flush_cb   = fbdev_flush;
+	disp_drv.hor_res	= atoi(argv[1]);
+	disp_drv.ver_res	= atoi(argv[2]);
+    lv_disp_drv_register(&disp_drv);
+
+    evdev_init(argv[4]);
+    static lv_indev_drv_t indev_drv_1;
+    lv_indev_drv_init(&indev_drv_1); /*Basic initialization*/
+    indev_drv_1.type = LV_INDEV_TYPE_POINTER;
+
+    /*This function will be called periodically (by the library) to get the mouse position and state*/
+    indev_drv_1.read_cb = evdev_read;
+    lv_indev_t *mouse_indev = lv_indev_drv_register(&indev_drv_1);
+
+
+    /*Set a cursor for the mouse*/
+    LV_IMG_DECLARE(mouse_cursor_icon)
+    lv_obj_t * cursor_obj = lv_img_create(lv_scr_act()); /*Create an image object for the cursor */
+    lv_img_set_src(cursor_obj, &mouse_cursor_icon);           /*Set the image source*/
+    lv_indev_set_cursor(mouse_indev, cursor_obj);
+
+    lv_obj_t * menu = lv_menu_create(lv_scr_act());
+    lv_obj_set_size(menu, lv_disp_get_hor_res(NULL), lv_disp_get_ver_res(NULL));
+    lv_obj_center(menu);
+	
+	lv_obj_t * back_btn = lv_menu_get_main_header_back_btn(menu);
+    lv_obj_t * back_btn_label = lv_label_create(back_btn);
+    lv_label_set_text(back_btn_label, "Back");
+
+	lv_obj_t *cont, *label, *btn;
+
+    lv_obj_t * sub_1_page = lv_menu_page_create(menu, "palera1n");
+
+    cont = lv_menu_cont_create(sub_1_page);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "Start");
+
+	lv_obj_t *options = lv_menu_page_create(menu, "Options");
+	
+    lv_obj_set_flex_flow(options, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(options, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+
+    cont = lv_menu_cont_create(sub_1_page);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "Options");
+	lv_menu_set_load_page_event(menu, cont, options);
+
+    lv_obj_t * sub_2_page = lv_menu_page_create(menu, "Shell");
+
+    cont = lv_menu_cont_create(sub_2_page);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "Shell");
+
+    cont = lv_menu_cont_create(sub_2_page);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "SSH");
+
+    lv_obj_t * sub_3_page = lv_menu_page_create(menu, "Power");
+
+	btn = lv_btn_create(sub_3_page);
+    cont = lv_menu_cont_create(sub_3_page);
+    label = lv_label_create(btn);
+    lv_label_set_text(label, "Reboot");
+	lv_obj_center(label);
+	lv_obj_add_event_cb(btn, reboot, LV_EVENT_ALL, NULL);
+    
+	btn = lv_btn_create(sub_3_page);
+	cont = lv_menu_cont_create(sub_3_page);
+    label = lv_label_create(btn);
+    lv_label_set_text(label, "Shutdown");
+	lv_obj_center(label);
+	lv_obj_add_event_cb(btn, shutdown, LV_EVENT_ALL, NULL);
+
+    lv_obj_t * main_page = lv_menu_page_create(menu, "pilera1n v1.0.0");
+
+	cont = lv_menu_cont_create(main_page);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "palera1n");
+    lv_menu_set_load_page_event(menu, cont, sub_1_page);
+
+	cont = lv_menu_cont_create(main_page);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "Shell");
+    lv_menu_set_load_page_event(menu, cont, sub_2_page);
+
+    cont = lv_menu_cont_create(main_page);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "Power");
+    lv_menu_set_load_page_event(menu, cont, sub_3_page);
+
+    lv_menu_set_page(menu, main_page);
+
+	while(1) {
+        lv_timer_handler();
+        usleep(5000);
+    }
+
+    return 0;
+}
+
+/*Set in lv_conf.h as `LV_TICK_CUSTOM_SYS_TIME_EXPR`*/
+uint32_t custom_tick_get(void)
+{
+    static uint64_t start_ms = 0;
+    if(start_ms == 0) {
+        struct timeval tv_start;
+        gettimeofday(&tv_start, NULL);
+        start_ms = (tv_start.tv_sec * 1000000 + tv_start.tv_usec) / 1000;
+    }
+
+    struct timeval tv_now;
+    gettimeofday(&tv_now, NULL);
+    uint64_t now_ms;
+    now_ms = (tv_now.tv_sec * 1000000 + tv_now.tv_usec) / 1000;
+
+    uint32_t time_ms = now_ms - start_ms;
+    return time_ms;
+}

@@ -1,21 +1,26 @@
 #include "lvgl/lvgl.h"
-#include "lvgl/demos/lv_demos.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define DISP_BUF_SIZE (128 * 1024)
 
-int main(void)
-{
-    /*LittlevGL init*/
+int main(int argc, char *argv[]) {
+	if(argc != 5) {
+		printf("Usage: %s width height fbdev_path evdev_path\n", argv[0]);
+		return 1;
+	}
+
+	/*LittlevGL init*/
     lv_init();
 
     /*Linux frame buffer device init*/
-    fbdev_init();
+    fbdev_init(argv[3]);
 
     /*A small buffer for LittlevGL to draw the screen's content*/
     static lv_color_t buf[DISP_BUF_SIZE];
@@ -29,11 +34,11 @@ int main(void)
     lv_disp_drv_init(&disp_drv);
     disp_drv.draw_buf   = &disp_buf;
     disp_drv.flush_cb   = fbdev_flush;
-    disp_drv.hor_res    = 800;
-    disp_drv.ver_res    = 480;
+	disp_drv.hor_res	= atoi(argv[1]);
+	disp_drv.ver_res	= atoi(argv[2]);
     lv_disp_drv_register(&disp_drv);
 
-    evdev_init();
+    evdev_init(argv[4]);
     static lv_indev_drv_t indev_drv_1;
     lv_indev_drv_init(&indev_drv_1); /*Basic initialization*/
     indev_drv_1.type = LV_INDEV_TYPE_POINTER;
@@ -49,11 +54,9 @@ int main(void)
     lv_img_set_src(cursor_obj, &mouse_cursor_icon);           /*Set the image source*/
     lv_indev_set_cursor(mouse_indev, cursor_obj);             /*Connect the image  object to the driver*/
 
+	lv_demo_widgets();
 
-    /*Create a Demo*/
-    lv_demo_widgets();
-
-    /*Handle LitlevGL tasks (tickless mode)*/
+	/*Handle LitlevGL tasks (tickless mode)*/
     while(1) {
         lv_timer_handler();
         usleep(5000);
